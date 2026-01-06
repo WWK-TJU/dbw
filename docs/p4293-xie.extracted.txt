@@ -1,0 +1,439 @@
+--- page 1 ---
+Graph Association Analyses for Early Drug Discovery
+Wenfei Fan∗
+Shenzhen Institute of Computing
+Sciences, China
+University of Edinburgh, UK
+Beihang University, China
+wenfei@inf.ed.ac.ukDaji Li
+Peiyu Liang
+Shenzhen Institute of Computing
+Sciences, China
+lidaji@sics.ac.cn
+liangpeiyu@sics.ac.cnShuhao Liu
+Yaoshu Wang
+Shenzhen Institute of Computing
+Sciences, China
+shuhao@sics.ac.cn
+yaoshuw@sics.ac.cn
+Yiming Wang
+Shenzhen Institute of Computing
+Sciences, China
+wangyiming@sics.ac.cnMin Xie
+Shenzhen Institute of Computing
+Sciences, China
+xiemin@sics.ac.cnRunjie Zhang
+Shenzhen Institute of Computing
+Sciences, China
+zhangrunjie@sics.ac.cn
+ABSTRACT
+We demonstrate MedHunter , a system for assisting the early stage
+of drug development. MedHunter builds a biomedical knowledge
+graph DDKG by integrating data from eleven biochemical libraries
+and data banks, and aligning entities from different data sources
+by means of heterogeneous entity resolution. It identifies drug-
+disease associations and protein-protein interactions in DDKG by
+employing graph association rules ( GARs ).GARs use graph pat-
+terns to extract relevant entities and embed ML models as predi-
+cates. MedHunter discovers GARs from DDKG and incrementally
+enriches DDKG with external data; it cleans DDKG with a special
+form of GARs . We demonstrate MedHunter for its (a) interfaces,
+(b) data enrichment/cleaning, and (c) applications in target identifi-
+cation, drug-drug interaction and protein-protein interaction.
+PVLDB Reference Format:
+Wenfei Fan, Daji Li, Peiyu Liang, Shuhao Liu, Yaoshu Wang, Yiming Wang,
+Min Xie, and Runjie Zhang. Graph Association Analyses for Early Drug
+Discovery. PVLDB, 17(12): 4293 - 4296, 2024.
+doi:10.14778/3685800.3685858
+1 INTRODUCTION
+Drug discovery is the process of new drug identification, starting
+from target selection and validation, through preclinical screening,
+to clinical trials [ 13]. It is time-consuming and costly. The develop-
+ment of a new drug takes 10–15 years, costs around 2 billion US
+dollars, and typically has a high risk of failure (>90%) [22].
+To accelerate drug discovery, reduce the cost and increase the
+success rate, machine learning (ML) models have been explored to
+identify drug-disease associations (DDAs), drug-drug interactions
+(DDIs), and protein-protein interactions (PPIs). However, it is costly
+to train accurate deep-learning models, and ML predictions often
+have false positives (FPs) and false negatives (FNs). Moreover, ML
+predictions “still lack reliable explanations that are crucial to drug
+∗Author names are listed in alphabetical order.
+This work is licensed under the Creative Commons BY-NC-ND 4.0 International
+License. Visit https://creativecommons.org/licenses/by-nc-nd/4.0/ to view a copy of
+this license. For any use beyond those covered by this license, obtain permission by
+emailing info@vldb.org. Copyright is held by the owner/author(s). Publication rights
+licensed to the VLDB Endowment.
+Proceedings of the VLDB Endowment, Vol. 17, No. 12 ISSN 2150-8097.
+doi:10.14778/3685800.3685858repurposing and ADR (adverse drug reaction)” [ 22]. Worse yet,
+noise is introduced by “unavoidable inaccuracy” of the models, e.g.,
+nonexistent relations and inaccurately named entities.
+Can we do better? Is it possible to develop a cost-effective method
+to reduce false positives and false negatives of ML predictions, and
+moreover, enrich and clean the data from different data sources?
+MedHunter (Section 2). In response to this, we have developed
+a system to assist early drug discovery, known as MedHunter [1].
+MedHunter aims to assist (1) target identification, to identify the
+right biological molecules or cellular pathways that can be modu-
+lated by drugs to achieve therapeutic benefits, in which PPIs are
+often needed, (b) drug repurposing, to reuse existing drugs for a
+new disease, and (c) ADR, to disclose undesirable impacts of drugs.
+The need for these is evident. As an example, target identifica-
+tion is perhaps the most crucial initial step in drug discovery, and
+influences the chances of success at every step of drug development.
+Traditional target identification easily takes from years to decades.
+MedHunter helps select candidate targets and speed up the process.
+Compared to ML models, MedHunter offers the following.
+Graph association .MedHunter infers DDAs and DDIs from graphs
+based on both ML predictions and logic deduction. It employs a class
+of graph association rules ( GARs ) of the form 𝑄[¯𝑥](𝑋→𝑝0)[10].
+Here𝑄is a graph pattern to extract related entities and their rela-
+tionships/interactions; and 𝑋→𝑝0is a dependency on the entities.
+Moreover, ML models may be embedded as predicates for link/node
+classification. This allows MedHunter to directly leverage existing
+ML models, and enhance their predictions with logical reasoning.
+Accuracy and explanation .MedHunter deduces association 𝑝0as a
+logical consequence of GARs with certainty [ 12], using accumulated
+ground truth, i.e.,if the GARs and ground truth are correct, so is 𝑝0.
+Moreover, it filters FPs and FNs of ML model Mby adding logic
+predicates in precondition 𝑋. A PPI deduced by MedHunter in May
+2022 coincides a finding published in Nature in the same month [ 17].
+In addition, if 𝑝0is an ML modelMfor predicting DDIs, DDAs,
+PPIs or ADR, we can discover pattern 𝑄and conditions 𝑋for rules
+of the form 𝑄[¯𝑥](𝑋→M) to provide rational behind the predic-
+tions ofM. This is possible for GNN-based models, which are no
+more expressive than two-variable first-order logic with limited
+counting [ 6,14]. Such interpretability is one of the key advantages
+ofMedHunter . It enables researchers to get a glimpse of the inner
+4293
+
+--- page 2 ---
+workings ofM, so as to make improvement with novel insights.
+A uniform KG .MedHunter builds DDKG , a drug-disease knowl-
+edge graph (KG) in which it discovers GARs and deduces DDAs,
+DDIs and PPIs. DDKG consists of data from eleven libraries and data
+banks, e.g.,CTD [ 3] and BioGrid [ 2]. It aligns entities from different
+graphs [ 9], and incrementally enriches DDKG by external data [ 11].
+Biomedical data cleaning .MedHunter cleans DDKG by employing
+a special form of GARs [7]. It (incrementally) discovers such GARs ,
+detects errors and fixes the errors in DDKG with the GARs .
+Demonstration (Section 3). We give a guided tour of MedHunter ,
+from rule discovery, rule deduction of DDAs, DDIs and PPIs, to
+aligned entities in DDKG . Participants are invited to interact with
+MedHunter and experience how it helps in DDAs, DDIs and PPIs.
+2 AN OVERVIEW OF MEDHUNTER
+This sections presents the association rules (Section 2.1), knowledge
+graph (Section 2.2) and architecture (Section 2.3) of MedHunter .
+2.1 Graph Association Deduction
+MedHunter employs graph association rules ( GARs ). Graphs are
+modeled as 𝐺=(𝑉,𝐸,𝐿,𝐹𝐴), where𝑉is a finite set of vertices;
+𝐸⊆𝑉×𝐿(𝐸)×𝑉is a finite set of edges (𝑣,𝑙,𝑣′)with label𝑙; each𝑣
+in𝑉is labeled with its “content” 𝐿(𝑣); and each vertex 𝑣∈𝑉carries
+a tuple𝐹𝐴(𝑣)=(𝐴1=𝑎1,...,𝐴𝑛=𝑎𝑛)ofattributes of a finite arity.
+GARs .GARs are defined with a pattern and a dependency. A graph
+pattern is𝑄[¯𝑥]= (𝑉𝑄,𝐸𝑄,𝐿𝑄,𝜇), where (1) 𝑉𝑄(resp.𝐸𝑄) is a
+finite set of vertices (resp. edges), (2) 𝐿𝑄assigns a label 𝐿𝑄(𝑢)
+(resp.𝐿𝑄(𝑒)) to each pattern vertex 𝑢∈𝑉𝑄(resp. edge𝑒∈𝐸𝑄), (3)
+¯𝑥is a list of distinct variables, and 𝜇is a bijective mapping from ¯𝑥to
+𝑉𝑄,i.e.,it assigns a distinct variable to each vertex 𝑣in𝑉𝑄. For𝑥∈¯𝑥,
+we use𝜇(𝑥)and𝑥interchangeably when it is clear in the context.
+Amatch of pattern𝑄[¯𝑥]in graph𝐺is a homomorphism ℎfrom
+𝑄to𝐺such that (a) for each 𝑢∈𝑉𝑄,𝐿𝑄(𝑢)=𝐿(ℎ(𝑢)); and (b) for
+each𝑒=(𝑢,𝑙,𝑢′)in𝑄,𝑒′=(ℎ(𝑢),𝑙,ℎ(𝑢′))is an edge in 𝐺.
+Apredicate of pattern𝑄[¯𝑥]is one of the following:
+𝑝::=𝑙(𝑥,𝑦)|𝑥.𝐴⊗𝑦.𝐵|𝑥.𝐴⊗𝑐|2WL𝐿(𝑥,𝑦,𝑙)|M(𝑥.¯𝐴,𝑦. ¯𝐵),
+where⊗is one of =,≠,<,≤,>,≥;𝑥and𝑦are variables in ¯𝑥;𝑐is a
+constant;𝐴and𝐵are attributes; and 𝑥.¯𝐴is a list of attributes at
+“vertex”𝑥; similarly for 𝑦.¯𝐵. We support (a) link predicate 𝑙(𝑥,𝑦),
+indicating the existence of an edge labeled 𝑙from vertex 𝑥to𝑦; (b)
+attribute predicates 𝑥.𝐴⊗𝑦.𝐵and𝑥.𝐴⊗𝑐to compare attribute values;
+(c)2WL𝐿(𝑥,𝑦,𝑙), to check whether there is a link of “type” (label) 𝑙
+from𝑥to𝑦by local 2-WL (Weisfieler-Leman) test [ 15] (see below);
+and (d) ML predicateM(𝑥.¯𝐴,𝑦. ¯𝐵)returns true iffMpredicts true at
+(𝑥.¯𝐴,𝑦. ¯𝐵); hereMis an ML model that returns Boolean ( e.g.,M≥
+𝜎if the strength of the Mprediction is above a predefined bound 𝜎).
+Agraph association rule (GAR )𝜑is defined as
+𝑄[¯𝑥](𝑋→𝑝0),
+where𝑄[¯𝑥]is a graph pattern, 𝑋is a (possibly empty) conjunction
+of predicates of 𝑄[¯𝑥], and𝑝0is a predicate of 𝑄[¯𝑥]. We refer to
+𝑄[¯𝑥]and𝑋→𝑝0as the pattern anddependency of𝜑, respectively,
+and to𝑋and𝑝0as the precondition andconsequence , respectively.
+Intuitively, the pattern 𝑄extracts related entities in a graph,
+and the dependency 𝑋→𝑝0is applied to the entities. Attribute
+Figure 1: Graph patterns in GARs
+predicates𝑥.𝐴=𝑐and𝑥.𝐴=𝑦.𝐵specify value associations of
+attributes, and link predicates 𝑙(𝑥,𝑦)make link associations . One can
+“plug in” pre-trained ML models Mfore.g.,ER and classification.
+Predicate 2WL𝐿(𝑥,𝑦,𝑙)is used to explain the predictions of M.
+As shown in [ 15], most GNN models for link prediction are based
+on the 1-WL test, and are at most as expressive as local 2-WL test.
+Thus with 2WL𝐿(𝑥,𝑦,𝑙),GARs can explain such GNN predictions.
+Below we exemplify GARs discovered from real-life data.
+(1) Drug repurposing . Upon the request of our biomedical partners,
+MedHunter was used to discover GARs for repositioning of existing
+drugs on a type of Parkinson disease. A GAR is𝜑1=𝑄1[¯𝑥](𝑋1→
+𝑙(𝑥0,𝑥1))in Figure 1. The rule is discovered from CTD [ 3]. Together
+with𝑄1, precondition 𝑋1specifies the following: (1) drug 𝑥0has a
+known effect on an inborn genetic blood disease 𝑥2; (2) disease𝑥1is
+the Parkinson; (3) drug 𝑥0interacts with a gene 𝑥3, which shares an
+effect pathway 𝑥4with𝑥1; (4) drug𝑥0can interact with a gene 𝑥5,
+which has anM1-predicted relationship with 𝑥1(the dashed arrow
+in𝑄1), whereM1is a model that predicts the associations between
+genes and diseases [ 18,20,21]; and (5) drug 𝑥0has a known effect
+on a type of skin cancer 𝑥6, which shares an effect pathway with
+𝑥1. The predicted link 𝑙(𝑥0,𝑥1)(the bold line in 𝑄1) indicates that
+drug𝑥0may be associated to Parkinson’s disease 𝑥1in some way.
+Such GARs found five drugs for Parkinson, four with published
+evidence and the remaining one is under lab investigation.
+(2) Protein-protein interaction .BioGRID [2] is a popular biomedical
+repository. After enriching it with external data, e.g.,UniProt [5], a
+GAR is𝜑2=𝑄2[¯𝑥](M 2(𝑥0,𝑥0)≥𝛿∧𝑋2→𝑙(𝑥0,𝑥0)), in whichM2
+is aRGCN model [ 19] for PPIs,𝑄2is given in Figure 1 in which each
+vertex (resp. edge) denotes a protein (resp. PPI); here 𝑋2specifies
+logic conditions e.g.,the domains and subcellular locations. This
+GAR identifies the self-interaction 𝑙(𝑥0,𝑥0)(the bold loop in 𝑄2) on
+𝑥0by filtering the FPs of the prediction of M2with additional logic
+conditions in 𝑋2,i.e.,although the strength of the M2prediction is
+above the threshold 𝛿, the prediction is made only if 𝑋2holds.
+A PPI identified by such GARs coincides a finding in [17].
+(3) Explanation . If𝑝0is an ML predicate, MedHunter can discover
+GARs to explain the ML prediction, e.g.,𝜑3=𝑄3[¯𝑥](𝑋3→M 3(𝑥0,
+𝑥4))in Figure 1, where M3is an ML model that predicts the in-
+teraction between gene 𝑥0and disease 𝑥4. This GAR explains why
+M3(𝑥0,𝑥4)is true (the bold line in 𝑄3) with both𝑄3and𝑋3,i.e.,(1)
+gene𝑥0has interacted with pathway 𝑥2; (2) gene𝑥0has interacted
+with disease 𝑥1that has also interacted with pathway 𝑥3; (3) gene𝑥5
+is predicted to interact with pathway 𝑥3by2WL𝐿, and it has effect
+on disease𝑥4; and (4) pathway 𝑥2has effect on diseases 𝑥1and𝑥4.
+4294
+
+--- page 3 ---
+NCBI MeSH KEGG
+STRINGCTD
+REACTOME OMIMPharmGKB
+BioGRIDGene OntologyData SourcesHeterogeneous entity 
+resolutionGraph join Graph filteringData EnrichmentFunctionality
+Rule discoveryBatch and 
+Incremental Data cleaning Rule deductionDurg-disease 
+associationDrug-drug interactionProtein-protein 
+interactionApplicationsUser Intersaction
+UniProt ClustalW DAVIDFigure 2: The architecture of MedHunter
+ Figure 3: A snapshot of the user panel of MedHunter
+Algorithms .MedHunter implements (a) the algorithm of [ 8] for
+discovering GARs , (b) an extension of [ 12] for deducing missing
+DDIs, DDAs and PPIs; it chases a biomedical graph with a set Σof
+mined GARs by accumulating and referencing ground truth in the
+process. Both algorithms are parallely scalable, i.e.,they provably
+guarantee to reduce runtime when given more processors [16].
+2.2 Cleaning and Enriching DDKG
+MedHunter maintains DDKG by enriching and cleaning its data.
+Drug-Disease Knowledge Graph .DDKG integrates biomedical
+libraries and data banks, by computing their join as follows.
+MedHunter aligns entities across different graphs by employing
+heterogeneous entity resolution ( HER ) [9]. For a vertex 𝑣1in graph
+𝐺1and vertex𝑣2in another graph 𝐺2, it determines whether 𝑣1
+and𝑣2refer to the same entity via parametric simulation, which
+embeds ML models for similarity checking in topological matching.
+Given𝐺1=(𝑉1,𝐸1,𝐿1,𝐹1)and𝐺2=(𝑉2,𝐸2,𝐿2,𝐹2),MedHunter
+“joins” them as 𝐺⊕(𝐺1,𝐺2)=(𝑉⊕,𝐸⊕,𝐿⊕,𝐹⊕), where𝑉⊕(resp.𝐸⊕)
+is a revision of the union 𝑉1∪𝑉2(resp.𝐸∪𝐸2) such that𝑢and𝑣are
+represented as the same (merged) vertex in 𝑉⊕if(𝑢,𝑣)is a match
+byHER ; and𝐿⊕and𝐹⊕inherit the label and attribute assignments
+from𝐺1and𝐺2. When𝑢and𝑣both carry attribute 𝐴, the merged
+vertex takes the value 𝑣.𝐴from more reliable 𝐺𝑖(∈[1,2]).
+Data enrichment . To ensure that DDKG remains up-to-date and
+relevant, MedHunter continuously and incrementally enriches it in
+response to updates Δ𝐺to the source graphs. Rather than adding
+all data from Δ𝐺, it employs the graph filtering method of [ 11]
+to extract only relevant data to DDKG ; it applies LSTM to pick
+“important” paths ranks the paths, extracts data from top-ranked
+paths, and enriches DDKG with the data. As shown in [ 11], graph
+filtering is effective in reducing noise and the size of DDKG .
+Data cleaning .MedHunter maintains the quality of DDKG via
+a (human-in-the-loop) cleaning procedure, using a special case of
+GARs , referred to as Graph Cleaning Rules ( GCRs ) [7]. AGCR has a
+formQ[𝑥0,𝑦0](𝑋→𝑝0), whereQ[𝑥0,𝑦0]=⟨𝑄𝑥[𝑥0,¯𝑥],𝑄𝑦[𝑦0,¯𝑦]⟩,
+𝑄𝑥[𝑥0,¯𝑥]is a star shape pattern with a designed 𝑥0; similarly for
+𝑄𝑦[𝑦0,¯𝑦].GCRs support all the predicates of GARs except 2WL𝐿.
+Intuitively,Qspecifies two entities 𝑥0and𝑦0with heterogeneous
+structures in a schemaless graph. The star patterns identify features
+of𝑥0and𝑦0. We restrict 𝑄𝑥and𝑄𝑦to a star shape so that it takes
+polynomial time to check matches of such Q, and to apply GCRs [7].
+MedHunter automatically discovers GCRs from DDKG . To cleandata with certain fixes, users can selectively apply a set of GCRs
+based on labeled ground-truth data; they may optionally intervene
+in a prompt-and-confirm style to facilitate the cleaning process.
+Algorithms .MedHunter implements (a) the algorithms of [ 11] for
+graph join, data enrichment, and incremental discovery of GARs ;
+(b) the algorithms of [ 7] for mining GCRs and detecting errors;
+and (c) an extension of the algorithm of [ 12] for fixing the detected
+errors. All the algorithms are also parallelly scalable [16].
+2.3 The Architecture of MedHunter
+The architecture of MedHunter is shown in Figure 2. It consists of
+the following main modules, from the bottom to the top.
+◦Data sources , which maintain raw data from various libraries and
+data banks. New data can be dynamically merged with DDKG .
+◦Data enrichment . On top of the data source module, MedHunter
+conducts data enrichment, by first aligning entities across differ-
+ent sources and then leveraging graph join and graph filtering
+techniques to construct a unified knowledge graph DDKG .
+◦Rule discovery and data cleaning . Based on the integrated DDKG ,
+MedHunter supports GAR /GCR discovery, cleaning and associ-
+ation deduction, in both batch and incremental modes. before.
+◦Applications . The GARs discovered are then used in various
+biomedical applications, for identifying DDAs, DDIs and PPIs,
+3 DEMONSTRATION SETUP AND PLAN
+This section proposes our plan for demonstrating MedHunter1.
+Setup . We will use a single machine powered by 16GB RAM and 8
+processors with Intel(R) Xeon(R) Gold 5320 CPU @2.20GH.
+User interface . Participants are invited to access MedHunter from
+its Web UI. As shown in the snapshot of Figure 3, MedHunter
+presents a friendly interface. The top navigation bar provides access
+to three main modules of MedHunter . Each module is task-based,
+and it takes only a few clicks to get a task up and running. We
+will walk users through the process of creating new tasks, where
+they configure inputs and monitor its progress. The task results are
+visualized and updated in real time through the dashboard.
+Data enrichment . We will give a guided tour of how MedHunter
+enriches DDKG from external data, e.g.,PharmGKB [ 4]. User can
+“join” data and DDKG , and take the enriched DDKG for further anal-
+ysis. The process is interactive and visualized on the Web interface.
+1https://youtu.be/rhvcXBjtLhw
+4295
+
+--- page 4 ---
+1. disease3. variant
+Variant Annotation count: 
+(Variant Annotation count<125)
+             2. chemical
+VIP Count: (VIP Count≥3)
+0. variantc-vc-v
+d-vd-v
+c-d1. disease
+ARTIVILA Id: PA445742
+0. variant
+Clinical Annotation count: 0
+Gene Symbols: IGFBP3
+3. variant
+Clinical Annotation count: 1
+Gene Symbols: VEGFA
+              2. chemical
+ARTIVILA Id: PA128406956
+Brand Mixtures: 5FUc-vd-v
+c-dc-vd-vFigure 4: MedHunter in DDAs
+Data cleaning . We will walk users through the data cleaning pro-
+cess of MedHunter . We will guide users to configure and run rule
+discovery for GCRs . The users can examine the discovered GCRs ,
+and pick a subset for cleaning. We will demonstrate interactive data
+cleaning, using the selected GCRs . During the process, MedHunter
+will visualize detected errors and the GCRs , with suggested fixes. A
+user may opt to either accept a suggestion or customize a fix, which
+will be taken as ground truth for subsequent GCR applications.
+Applications . Participants are also invited to experience drug
+discovery with MedHunter , in the following three scenarios. Each
+scenario is offered as a task template under rule discovery.
+Scenario 1: DDAs . Users may pick a disease 𝑦, and identify either
+(a) molecule targets or (b) existing drugs that may have therapeutic
+effects on the disease. It is to discover and apply GARs whose
+consequence has the form 𝑙(𝑥,𝑦), where𝑥is a drug or a gene. Over
+DDKG , we will direct users to specify 𝑦in the task template for
+GAR discovery and monitor its execution. The discovered GARs
+and their predicted DDAs are visualized and updated in real time.
+A learned GAR𝜑4=𝑄4[¯𝑥](𝑥2.NVIP≥3∧𝑥3.Nanno<125→
+𝑙(𝑥2,𝑥1))is shown in the left panel of Figure 4. It suggests that a
+drug𝑥2may be associated to disease 𝑥1, provided that (1) 𝑥2has a
+high VIP count ( i.e.,an active compound), and (2) 𝑥1and𝑥2both
+interact with a gene variant 𝑥3that has a low annotation count
+(<125).MedHunter reports that GAR𝜑4has a support of 51, with
+confidence over 0.95. One of its predicted DDAs is between Drug
+#PA128406956 and Disease #PA445742 (shown in the right panel).
+Scenario 2: DDIs .MedHunter can also disclose drug-drug interac-
+tions. We will demonstrate this functionality in a procedure similar
+to DDAs, except that it allows users to specify a target drug as 𝑦.
+Scenario 3: PPIs . The participants will also witness how MedHunter
+identifies protein-protein interactions. It is to discover and apply
+link predicting GARs over the PPI network of DDKG , along with
+ML models for PPI predictions, e.g.,RGCN. We will guide the users
+to examine the result as GARs focus on reducing the FPs and FNs.
+Figure 5 shows a discovered GAR𝜑5=𝑄5[¯𝑥](𝑥1.pathway =
+Metabolism _of_proteins∧𝑥1.domain =Cyclin∧M 2(𝑥1,𝑥1)=
+false→𝑙(𝑥1,𝑥1)). The rule’s confidence is 0.993; it suggests the self-
+PPI on protein 𝑥1despite the negative prediction of M2, if (1) Cyclin-
+domain𝑥1is involved in the pathway “Metabolism of proteins”,
+and (2)𝑥1shares at least two common PPIs with protein 𝑥2.
+0. protein 3. protein
+2. proteinp-p
+p-p p-pp-pp-p1. protein
+domain: PF00134,PF02984
+location: Nucleus
+3. protein
+domain: PF00069
+location: Cytoplasm,
+Nucleus
+2. protein
+domain: PF00653
+location: Cytoplasm,Nucleusp-p
+p-p
+p-pp-p
+0. protein
+domain: 
+PF00069,PF00169,PF00433
+location: Cytoplasm,
+1. protein
+pathway: Metabolism of proteins
+domain: ¬(PF02752,PF00339)
+p-pFigure 5: MedHunter in PPIs
+We will show that MedHunter reduces the FPs and FNs of ML
+models for these tasks, by improving the precision by 4%on average.
+ACKNOWLEDGMENTS
+This work is supported by China NSFC 62202313 and Guangdong
+Basic and Applied Basic Research Foundation 2022A1515010120.
+REFERENCES
+[1]2024. AI-based Drug Development Solution. https://www.grandhoo.com/en/
+fishtown/product-solution/qubing/.
+[2] 2024. BioGRID. https://thebiogrid.org/.
+[3] 2024. Comparative Toxicogenomics Database (CTD). https://ctdbase.org/.
+[4] 2024. PharmGKB dataset. https://www.pharmgkb.org/.
+[5] 2024. UniProt. https://www.uniprot.org/.
+[6] Jin-yi Cai, Martin Fürer, and Neil Immerman. 1992. An optimal lower bound on
+the number of variables for graph identification. Comb. 12, 4 (1992), 389–410.
+[7] Wenfei Fan, Wenzhi Fu, Ruochun Jin, Muyang Liu, Ping Lu, and Chao Tian. 2023.
+Making It Tractable to Catch Duplicates and Conflicts in Graphs. Proc. ACM
+Manag. Data 1, 1 (2023), 86:1–86:28.
+[8] Wenfei Fan, Wenzhi Fu, Ruochun Jin, Ping Lu, and Chao Tian. 2022. Discovering
+Association Rules from Big Graphs. PVLDB 15, 7 (2022), 1479–1492.
+[9]Wenfei Fan, Ling Ge, Ruochun Jin, Ping Lu, and Wenyuan Yu. 2022. Linking
+Entities across Relations and Graphs. In ICDE . IEEE, 634–647.
+[10] Wenfei Fan, Ruochun Jin, Muyang Liu, Ping Lu, Chao Tian, and Jingren Zhou.
+2020. Capturing Associations in Graphs. PVLDB 13, 11 (2020), 1863–1876.
+[11] Wenfei Fan, Muyang Liu, Shuhao Liu, and Chao Tian. 2024. Catching More
+Associations by Referencing Knowledge Graphs. PVLDB (2024).
+[12] Wenfei Fan, Ping Lu, Chao Tian, and Jingren Zhou. 2019. Deducing Certain Fixes
+to Graphs. PVLDB 12, 7 (2019), 752–765.
+[13] Chris Fotis, Asier Antoranz, Dimitris Hatziavramidis, Theodore Sakellaropoulos,
+and Leonidas G. Alexopoulos. 2017. Pathway-based technologies for early drug
+discovery. Drug Discovery Today (2017).
+[14] Martin Grohe. 2020. word2vec, node2vec, graph2vec, X2vec: Towards a Theory
+of Vector Embeddings of Structured Data. In PODS . ACM, 1–16.
+[15] Yang Hu, Xiyuan Wang, Zhouchen Lin, Pan Li, and Muhan Zhang. 2022. Two-
+Dimensional Weisfeiler-Lehman Graph Neural Networks for Link Prediction.
+CoRR abs/2206.09567 (2022).
+[16] Clyde P. Kruskal, Larry Rudolph, and Marc Snir. 1990. A complexity theory of
+efficient parallel algorithms. Theor. Comput. Sci. 71, 1 (1990), 95–132.
+[17] Ying Lai, Giorgio Fois, Jose R Flores, et al .2022. Inhibition of calcium-triggered
+secretion by hydrocarbon-stapled peptides. Nature 603, 7903 (2022), 949–956.
+[18] Yu Li, Hiroyuki Kuwahara, Peng Yang, Le Song, and Xin Gao. 2019. PGCN:
+Disease gene prioritization by disease and gene embedding through graph con-
+volutional neural networks. biorxiv (2019), 532226.
+[19] Michael Schlichtkrull, Thomas N Kipf, Peter Bloem, Rianne Van Den Berg, Ivan
+Titov, and Max Welling. 2018. Modeling relational data with graph convolutional
+networks. In The Semantic Web (ESWC) . Springer, 593–607.
+[20] Juan Shu, Yu Li, Sheng Wang, Bowei Xi, and Jianzhu Ma. 2021. Disease gene pre-
+diction with privileged information and heteroscedastic dropout. Bioinformatics
+37, Supplement_1 (2021), i410–i417.
+[21] Xiaochan Wang, Yuchong Gong, Jing Yi, and Wen Zhang. 2019. Predicting gene-
+disease associations from the heterogeneous network using graph embedding. In
+IEEE International conference on bioinformatics and biomedicine (BIBM) . 504–511.
+[22] Xiangxiang Zeng, Xinqi Tu, Yuansheng Liu, Xiangzheng Fu, and Yansen Su.
+2022. Toward better drug discovery with knowledge graph. Current opinion in
+structural biology 72 (2022), 114–126.
+4296
